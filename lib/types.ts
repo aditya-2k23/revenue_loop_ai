@@ -123,10 +123,14 @@ export interface MatchSummary {
 export interface ProcessResponse {
   matchResult: MatchSummary;
   roasResult: RoasResult;
-  narrative: string;
   warnings: string[];
   touchGraph: SaleTouchGraph[];
   allLeads: Lead[];
   spendRows?: SpendRow[];
+  error?: string;
+}
+
+export interface NarrativeResponse {
+  narrative: string;
   error?: string;
 }

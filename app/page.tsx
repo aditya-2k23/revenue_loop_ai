@@ -21,6 +21,13 @@ export default function HomePage() {
   const [showFormatHint, setShowFormatHint] = useState(false);
   const [hoveredCampaign, setHoveredCampaign] = useState<string | null>(null);
 
+  const [narrativeText, setNarrativeText] = useState<string | null>(null);
+  const [narrativeAttribution, setNarrativeAttribution] = useState<{
+    model: AttributionModel;
+    halfLifeDays?: number;
+  } | null>(null);
+  const [narrativeLoading, setNarrativeLoading] = useState(false);
+
   const leadsRef = useRef<HTMLInputElement>(null);
   const salesRef = useRef<HTMLInputElement>(null);
   const spendRef = useRef<HTMLInputElement>(null);
@@ -33,10 +40,18 @@ export default function HomePage() {
     });
   }, [attributionModel, data, halfLifeDays]);
 
+  const isNarrativeStale =
+    narrativeAttribution &&
+    (narrativeAttribution.model !== attributionModel ||
+      (attributionModel === "time-decay" &&
+        narrativeAttribution.halfLifeDays !== halfLifeDays));
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setData(null);
+    setNarrativeText(null);
+    setNarrativeAttribution(null);
 
     const leadsFile = leadsRef.current?.files?.[0];
     const salesFile = salesRef.current?.files?.[0];
@@ -68,6 +83,34 @@ export default function HomePage() {
       setError(err instanceof Error ? err.message : "Network error");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGenerateNarrative() {
+    if (!activeRoasResult) return;
+    setNarrativeLoading(true);
+    const currentAttr = { model: attributionModel, halfLifeDays };
+    try {
+      const res = await fetch("/api/narrative", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roasResult: activeRoasResult,
+          attribution: currentAttr,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error ?? "Failed to generate narrative");
+      }
+      setNarrativeText(json.narrative || "");
+      setNarrativeAttribution(currentAttr);
+    } catch (err) {
+      console.error(err);
+      setNarrativeText("");
+      setNarrativeAttribution(currentAttr);
+    } finally {
+      setNarrativeLoading(false);
     }
   }
 
@@ -300,12 +343,12 @@ export default function HomePage() {
             />
             {activeRoasResult?.totals.overallRoas !== null &&
               activeRoasResult?.totals.overallRoas !== undefined && (
-              <StatCard
-                label="Overall ROAS"
-                value={`${activeRoasResult.totals.overallRoas}x`}
-                highlight
-              />
-            )}
+                <StatCard
+                  label="Overall ROAS"
+                  value={`${activeRoasResult.totals.overallRoas}x`}
+                  highlight
+                />
+              )}
           </div>
 
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 rounded-2xl border border-white/5 bg-zinc-900/30 p-5">
@@ -374,50 +417,89 @@ export default function HomePage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-6">
             {/* AI Insights */}
-            {data.narrative && (
-              <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h2 className="text-2xl font-bold text-white">AI Insights</h2>
-                <div
-                  id="narrative-box"
-                  className="relative bg-zinc-900/60 backdrop-blur-xl border border-purple-500/20 rounded-3xl p-8 shadow-2xl overflow-hidden group hover:border-purple-500/40 transition-colors"
+                <button
+                  onClick={handleGenerateNarrative}
+                  disabled={narrativeLoading}
+                  className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 rounded-xl px-4 py-2 text-sm font-semibold transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.15)] disabled:opacity-50 disabled:hover:shadow-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 flex items-center justify-center gap-2"
                 >
-                  <div className="absolute -top-32 -right-32 w-64 h-64 bg-purple-500/10 blur-3xl rounded-full pointer-events-none group-hover:bg-purple-500/20 transition-all" />
+                  {narrativeLoading ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-purple-400/20 border-t-purple-400 rounded-full animate-spin" />
+                      Generating...
+                    </>
+                  ) : narrativeText !== null ? (
+                    "Regenerate AI Insights"
+                  ) : (
+                    "Generate AI Insights"
+                  )}
+                </button>
+              </div>
+              <div
+                id="narrative-box"
+                className={`relative bg-zinc-900/60 backdrop-blur-xl border border-purple-500/20 rounded-3xl p-8 shadow-2xl overflow-hidden group hover:border-purple-500/40 transition-colors ${
+                  isNarrativeStale ? "opacity-60 grayscale-50" : ""
+                }`}
+              >
+                <div className="absolute -top-32 -right-32 w-64 h-64 bg-purple-500/10 blur-3xl rounded-full pointer-events-none group-hover:bg-purple-500/20 transition-all" />
 
-                  <div className="relative text-zinc-300 leading-relaxed space-y-5 text-sm md:text-base">
-                    {data.narrative ? (
-                      data.narrative.split("\n").map((line, i) =>
-                        line.trim() ? (
-                          <div key={i} className="flex gap-4 items-start">
-                            <span className="text-purple-400/50 shrink-0 mt-1">
-                              ✦
-                            </span>
-                            <p
-                              dangerouslySetInnerHTML={{
-                                __html: highlightCampaigns(line),
-                              }}
-                            />
-                          </div>
-                        ) : null,
-                      )
-                    ) : (
-                      <div className="flex items-center gap-3 text-zinc-500 italic py-4">
-                        <span className="text-xl">🤖</span> AI summary currently
-                        unavailable.
+                <div className="relative text-zinc-300 leading-relaxed space-y-5 text-sm md:text-base">
+                  {narrativeText === null ? (
+                    <div className="flex items-center gap-3 text-zinc-500 italic py-4">
+                      <span className="text-xl">🤖</span> Click "Generate AI
+                      Insights" to analyze these results.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-4 mb-4">
+                        <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                          Insights generated for:{" "}
+                          <span className="text-zinc-300">
+                            {narrativeAttribution?.model === "time-decay"
+                              ? `Time-decay, half-life ${narrativeAttribution.halfLifeDays}d`
+                              : narrativeAttribution?.model}
+                          </span>
+                        </span>
+                        {isNarrativeStale && (
+                          <span className="text-xs font-semibold text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+                            Stale — regenerate for {attributionModel}
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </div>
+
+                      {narrativeText ? (
+                        narrativeText.split("\n").map((line, i) =>
+                          line.trim() ? (
+                            <div key={i} className="flex gap-4 items-start">
+                              <span className="text-purple-400/50 shrink-0">
+                                ✦
+                              </span>
+                              <p
+                                dangerouslySetInnerHTML={{
+                                  __html: highlightCampaigns(line),
+                                }}
+                              />
+                            </div>
+                          ) : null,
+                        )
+                      ) : (
+                        <div className="flex items-center gap-3 text-zinc-500 italic py-4">
+                          <span className="text-xl">🤖</span> AI summary
+                          unavailable.
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Export Options */}
-            <div
-              className={`space-y-6 ${!data.narrative ? "lg:col-span-3" : ""}`}
-            >
+            <div className="space-y-6">
               <h2 className="text-2xl font-bold text-white">Export & Sync</h2>
-              <div
-                className={`grid grid-cols-1 ${!data.narrative ? "md:grid-cols-2" : ""} gap-4`}
-              >
+              <div className="grid grid-cols-1 gap-4">
                 {/* Google Ads */}
                 <div className="bg-zinc-900/60 backdrop-blur-xl border border-white/5 rounded-3xl p-6 hover:border-blue-500/30 transition-colors flex flex-col justify-between">
                   <div>
