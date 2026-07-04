@@ -27,10 +27,7 @@ function parseTimestamp(ts: string | undefined): number {
   return isNaN(parsed) ? 0 : parsed;
 }
 
-export function matchLeadsToSales(
-  leads: Lead[],
-  sales: Sale[]
-): MatchResult {
+export function matchLeadsToSales(leads: Lead[], sales: Sale[]): MatchResult {
   const matched: MatchedPair[] = [];
   const usedSaleIndices = new Set<number>();
 

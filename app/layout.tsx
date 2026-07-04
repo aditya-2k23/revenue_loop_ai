@@ -19,16 +19,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body
-        style={{
-          margin: 0,
-          fontFamily: "Inter, sans-serif",
-          background: "#0a0a0a",
-          color: "#ededed",
-        }}
-      >
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

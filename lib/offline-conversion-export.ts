@@ -106,7 +106,7 @@ export function toGoogleAdsOfflineConversionCSV(
   options: {
     conversionName?: string;
     currency?: string;
-  } = {}
+  } = {},
 ): string {
   const conversionName = options.conversionName ?? "Offline Sale";
   const currency = options.currency ?? "USD";
@@ -125,10 +125,10 @@ export function toGoogleAdsOfflineConversionCSV(
 
   for (const pair of pairs) {
     const hashedEmail = normalizeAndHashEmail(
-      pair.sale.email ?? pair.lead.email
+      pair.sale.email ?? pair.lead.email,
     );
     const hashedPhone = normalizeAndHashPhone(
-      pair.sale.phone ?? pair.lead.phone
+      pair.sale.phone ?? pair.lead.phone,
     );
 
     if (!hashedEmail && !hashedPhone) continue;
@@ -161,7 +161,7 @@ export function toMetaOfflineConversionCSV(
   options: {
     eventName?: string;
     currency?: string;
-  } = {}
+  } = {},
 ): string {
   const eventName = options.eventName ?? "Purchase";
   const currency = options.currency ?? "USD";
@@ -248,7 +248,7 @@ export function toMetaOfflineConversionPayload(
   options: {
     eventName?: string;
     currency?: string;
-  } = {}
+  } = {},
 ): MetaCAPIEvent[] {
   const eventName = options.eventName ?? "Purchase";
   const currency = (options.currency ?? "USD").toLowerCase();

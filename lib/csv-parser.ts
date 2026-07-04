@@ -7,153 +7,7 @@ import type {
   SpendRow,
   SynonymMap,
 } from "./types";
-
-const DEFAULT_SYNONYMS: SynonymMap = {
-  email: [
-    "email",
-    "email_address",
-    "emailaddress",
-    "contact_email",
-    "contactemail",
-    "e-mail",
-    "e_mail",
-    "mail",
-    "user_email",
-    "useremail",
-    "lead_email",
-    "leademail",
-    "customer_email",
-    "customeremail",
-  ],
-  phone: [
-    "phone",
-    "phone_number",
-    "phonenumber",
-    "phone_no",
-    "phoneno",
-    "contact_phone",
-    "contactphone",
-    "mobile",
-    "mobile_number",
-    "mobilenumber",
-    "tel",
-    "telephone",
-    "cell",
-    "cell_phone",
-    "cellphone",
-    "contact_number",
-    "contactnumber",
-  ],
-  campaign: [
-    "campaign",
-    "campaign_name",
-    "campaignname",
-    "utm_campaign",
-    "utmcampaign",
-    "campaign_id",
-    "campaignid",
-    "ad_campaign",
-    "adcampaign",
-  ],
-  creative: [
-    "creative",
-    "creative_name",
-    "creativename",
-    "ad_name",
-    "adname",
-    "ad",
-    "ad_creative",
-    "adcreative",
-    "ad_set",
-    "adset",
-    "ad_set_name",
-    "adsetname",
-    "ad_group",
-    "adgroup",
-  ],
-  timestamp: [
-    "timestamp",
-    "date",
-    "datetime",
-    "date_time",
-    "created_at",
-    "createdat",
-    "created",
-    "created_date",
-    "createddate",
-    "lead_date",
-    "leaddate",
-    "conversion_date",
-    "conversiondate",
-    "conversion_time",
-    "conversiontime",
-    "sale_date",
-    "saledate",
-    "close_date",
-    "closedate",
-    "closed_at",
-    "closedat",
-    "time",
-    "event_time",
-    "eventtime",
-  ],
-  value: [
-    "value",
-    "deal_value",
-    "dealvalue",
-    "sale_value",
-    "salevalue",
-    "revenue",
-    "amount",
-    "deal_amount",
-    "dealamount",
-    "sale_amount",
-    "saleamount",
-    "total",
-    "total_value",
-    "totalvalue",
-    "price",
-    "order_value",
-    "ordervalue",
-    "conversion_value",
-    "conversionvalue",
-  ],
-  status: [
-    "status",
-    "deal_status",
-    "dealstatus",
-    "stage",
-    "deal_stage",
-    "dealstage",
-    "won",
-    "is_won",
-    "iswon",
-    "converted",
-    "is_converted",
-    "isconverted",
-    "closed_won",
-    "closedwon",
-    "outcome",
-    "result",
-  ],
-  spend: [
-    "spend",
-    "cost",
-    "amount_spent",
-    "amountspent",
-    "ad_spend",
-    "adspend",
-    "total_spend",
-    "totalspend",
-    "budget",
-    "daily_spend",
-    "dailyspend",
-    "media_cost",
-    "mediacost",
-    "total_cost",
-    "totalcost",
-  ],
-};
+import { DEFAULT_SYNONYMS, WON_STATUS_VALUES } from "./constants";
 
 function normalizeHeaderForMatching(header: string): string {
   return header
@@ -164,7 +18,7 @@ function normalizeHeaderForMatching(header: string): string {
 
 function buildColumnMapping(
   rawHeaders: string[],
-  synonyms: SynonymMap
+  synonyms: SynonymMap,
 ): { mapping: Record<string, string>; unmapped: string[] } {
   const mapping: Record<string, string> = {};
   const unmapped: string[] = [];
@@ -179,7 +33,7 @@ function buildColumnMapping(
     let matched = false;
 
     for (const [canonical, normalizedSyns] of Object.entries(
-      normalizedSynonyms
+      normalizedSynonyms,
     )) {
       if (normalizedSyns.includes(normalized)) {
         if (!(canonical in mapping)) {
@@ -200,7 +54,7 @@ function buildColumnMapping(
 
 export function parseCSV(
   csvText: string,
-  synonyms: SynonymMap = DEFAULT_SYNONYMS
+  synonyms: SynonymMap = DEFAULT_SYNONYMS,
 ): ParseResult {
   const warnings: string[] = [];
 
@@ -213,18 +67,22 @@ export function parseCSV(
   if (parsed.errors.length > 0) {
     for (const err of parsed.errors) {
       warnings.push(
-        `CSV parse warning at row ${err.row ?? "?"}: ${err.message}`
+        `CSV parse warning at row ${err.row ?? "?"}: ${err.message}`,
       );
     }
   }
 
   if (!parsed.meta.fields || parsed.meta.fields.length === 0) {
-    return { rows: [], unmappedColumns: [], warnings: ["No headers found in CSV."] };
+    return {
+      rows: [],
+      unmappedColumns: [],
+      warnings: ["No headers found in CSV."],
+    };
   }
 
   const { mapping, unmapped } = buildColumnMapping(
     parsed.meta.fields,
-    synonyms
+    synonyms,
   );
 
   const rows: NormalizedRow[] = parsed.data.map((rawRow) => {
@@ -232,7 +90,8 @@ export function parseCSV(
 
     for (const [canonical, rawHeader] of Object.entries(mapping)) {
       const val = rawRow[rawHeader];
-      fields[canonical] = val !== undefined && val !== "" ? val.trim() : undefined;
+      fields[canonical] =
+        val !== undefined && val !== "" ? val.trim() : undefined;
     }
 
     return { fields, _raw: { ...rawRow } };
@@ -244,24 +103,12 @@ export function parseCSV(
 function isWonStatus(raw: string | undefined): boolean {
   if (!raw) return false;
   const lower = raw.trim().toLowerCase();
-  return [
-    "won",
-    "closed won",
-    "closedwon",
-    "closed-won",
-    "converted",
-    "yes",
-    "true",
-    "1",
-    "sale",
-    "paid",
-    "completed",
-  ].includes(lower);
+  return WON_STATUS_VALUES.includes(lower);
 }
 
 export function parseLeadsCSV(
   csvText: string,
-  synonyms: SynonymMap = DEFAULT_SYNONYMS
+  synonyms: SynonymMap = DEFAULT_SYNONYMS,
 ): { leads: Lead[]; unmappedColumns: string[]; warnings: string[] } {
   const result = parseCSV(csvText, synonyms);
   const warnings = [...result.warnings];
@@ -270,7 +117,7 @@ export function parseLeadsCSV(
   const hasPhone = result.rows.some((r) => r.fields.phone);
   if (!hasEmail && !hasPhone) {
     warnings.push(
-      "No email or phone column detected in leads CSV. Matching will not be possible."
+      "No email or phone column detected in leads CSV. Matching will not be possible.",
     );
   }
   if (!result.rows.some((r) => r.fields.campaign)) {
@@ -294,7 +141,7 @@ export function parseLeadsCSV(
 
 export function parseSalesCSV(
   csvText: string,
-  synonyms: SynonymMap = DEFAULT_SYNONYMS
+  synonyms: SynonymMap = DEFAULT_SYNONYMS,
 ): { sales: Sale[]; unmappedColumns: string[]; warnings: string[] } {
   const result = parseCSV(csvText, synonyms);
   const warnings = [...result.warnings];
@@ -303,7 +150,7 @@ export function parseSalesCSV(
   const hasPhone = result.rows.some((r) => r.fields.phone);
   if (!hasEmail && !hasPhone) {
     warnings.push(
-      "No email or phone column detected in sales CSV. Matching will not be possible."
+      "No email or phone column detected in sales CSV. Matching will not be possible.",
     );
   }
   if (!result.rows.some((r) => r.fields.value)) {
@@ -311,7 +158,7 @@ export function parseSalesCSV(
   }
   if (!result.rows.some((r) => r.fields.status)) {
     warnings.push(
-      "No status column detected in sales CSV. All rows will be treated as conversions."
+      "No status column detected in sales CSV. All rows will be treated as conversions.",
     );
   }
 
@@ -336,7 +183,7 @@ export function parseSalesCSV(
 
 export function parseSpendCSV(
   csvText: string,
-  synonyms: SynonymMap = DEFAULT_SYNONYMS
+  synonyms: SynonymMap = DEFAULT_SYNONYMS,
 ): { spend: SpendRow[]; unmappedColumns: string[]; warnings: string[] } {
   const result = parseCSV(csvText, synonyms);
   const warnings = [...result.warnings];
@@ -357,5 +204,3 @@ export function parseSpendCSV(
 
   return { spend, unmappedColumns: result.unmappedColumns, warnings };
 }
-
-export { DEFAULT_SYNONYMS };

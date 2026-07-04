@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     if (!pairs || !Array.isArray(pairs) || pairs.length === 0) {
       return NextResponse.json(
         { error: "No matched pairs provided." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -26,7 +26,8 @@ export async function POST(request: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": "text/csv",
-        "Content-Disposition": 'attachment; filename="google_ads_conversions.csv"',
+        "Content-Disposition":
+          'attachment; filename="google_ads_conversions.csv"',
       },
     });
   } catch (err: unknown) {

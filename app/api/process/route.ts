@@ -16,15 +16,15 @@ async function generateNarrative(roasResult: RoasResult): Promise<string> {
 
     const prompt = `You are a marketing analyst. Below is a JSON object containing per-campaign metrics from a lead-to-sale attribution analysis. Your job is to write a concise narrative (3–5 paragraphs) in plain business language. Focus on:
 
-1. Which campaigns have the highest true ROAS and which have the lowest.
-2. Where the divergence score is highest — these are campaigns where cost-per-lead ranking and true cost-per-acquisition ranking disagree most. Explain what that means in practical terms (e.g. "Campaign X looks cheap per lead but is actually expensive per real sale").
-3. Any campaigns generating lots of leads but very few sales (poor conversion).
-4. Actionable takeaways.
+    1. Which campaigns have the highest true ROAS and which have the lowest.
+    2. Where the divergence score is highest — these are campaigns where cost-per-lead ranking and true cost-per-acquisition ranking disagree most. Explain what that means in practical terms (e.g. "Campaign X looks cheap per lead but is actually expensive per real sale").
+    3. Any campaigns generating lots of leads but very few sales (poor conversion).
+    4. Actionable takeaways.
 
-DO NOT perform any calculations. Only narrate the numbers you are given. Be specific — reference campaign names and numbers.
+    DO NOT perform any calculations. Only narrate the numbers you are given. Be specific — reference campaign names and numbers.
 
-Data:
-${JSON.stringify(roasResult, null, 2)}`;
+    Data:
+    ${JSON.stringify(roasResult, null, 2)}`;
 
     const completion = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
@@ -50,13 +50,13 @@ export async function POST(request: NextRequest) {
     if (!leadsFile) {
       return NextResponse.json(
         { error: "Leads CSV file is required." },
-        { status: 400 }
+        { status: 400 },
       );
     }
     if (!salesFile) {
       return NextResponse.json(
         { error: "Sales CSV file is required." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     if (!leadsText.trim()) {
       return NextResponse.json(
         { error: "Leads CSV file is empty." },
-        { status: 400 }
+        { status: 400 },
       );
     }
     const leadsResult = parseLeadsCSV(leadsText);
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     if (leadsResult.leads.length === 0) {
       return NextResponse.json(
         { error: "Leads CSV produced no rows. Check file format." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -82,15 +82,18 @@ export async function POST(request: NextRequest) {
     if (!salesText.trim()) {
       return NextResponse.json(
         { error: "Sales CSV file is empty." },
-        { status: 400 }
+        { status: 400 },
       );
     }
     const salesResult = parseSalesCSV(salesText);
     allWarnings.push(...salesResult.warnings);
     if (salesResult.sales.length === 0) {
       return NextResponse.json(
-        { error: "Sales CSV produced no rows (no won/converted deals found). Check file format and status column values." },
-        { status: 400 }
+        {
+          error:
+            "Sales CSV produced no rows (no won/converted deals found). Check file format and status column values.",
+        },
+        { status: 400 },
       );
     }
 
@@ -108,7 +111,7 @@ export async function POST(request: NextRequest) {
     const roasResult = computeRoas(
       matchResult.matched,
       leadsResult.leads,
-      spendRows
+      spendRows,
     );
 
     const narrative = await generateNarrative(roasResult);

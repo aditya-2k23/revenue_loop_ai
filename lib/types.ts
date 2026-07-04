@@ -1,3 +1,15 @@
+export interface SpendByCampaign {
+  [campaign: string]: number;
+}
+
+export interface CampaignAccumulator {
+  campaign: string;
+  displayName: string;
+  leadCount: number;
+  saleCount: number;
+  totalRevenue: number;
+}
+
 export interface NormalizedRow {
   fields: Record<string, string | undefined>;
   _raw: Record<string, string>;
@@ -71,3 +83,19 @@ export interface RoasResult {
 }
 
 export type SynonymMap = Record<string, string[]>;
+
+export interface MatchSummary {
+  matchedCount: number;
+  unmatchedLeadsCount: number;
+  unmatchedSalesCount: number;
+  matchRatePercent: number;
+}
+
+export interface ProcessResponse {
+  matchResult: MatchSummary;
+  roasResult: RoasResult;
+  narrative: string;
+  warnings: string[];
+  _matchedPairs: MatchedPair[];
+  error?: string;
+}

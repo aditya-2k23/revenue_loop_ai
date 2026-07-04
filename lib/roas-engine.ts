@@ -4,11 +4,11 @@ import type {
   SpendRow,
   CampaignMetrics,
   RoasResult,
+  SpendByCampaign,
+  CampaignAccumulator,
 } from "./types";
 
-interface SpendByCampaign {
-  [campaign: string]: number;
-}
+
 
 function aggregateSpend(spendRows: SpendRow[]): SpendByCampaign {
   const result: SpendByCampaign = {};
@@ -24,18 +24,12 @@ function normalizeCampaignKey(raw: string | undefined): string {
   return (raw ?? "unknown").trim().toLowerCase();
 }
 
-interface CampaignAccumulator {
-  campaign: string;
-  displayName: string;
-  leadCount: number;
-  saleCount: number;
-  totalRevenue: number;
-}
+
 
 export function computeRoas(
   matchedPairs: MatchedPair[],
   allLeads: Lead[],
-  spendRows?: SpendRow[]
+  spendRows?: SpendRow[],
 ): RoasResult {
   const campaignMap = new Map<string, CampaignAccumulator>();
 
@@ -82,19 +76,13 @@ export function computeRoas(
         : null;
 
     const cpl =
-      spend !== null && acc.leadCount > 0
-        ? round(spend / acc.leadCount)
-        : null;
+      spend !== null && acc.leadCount > 0 ? round(spend / acc.leadCount) : null;
 
     const cpa =
-      spend !== null && acc.saleCount > 0
-        ? round(spend / acc.saleCount)
-        : null;
+      spend !== null && acc.saleCount > 0 ? round(spend / acc.saleCount) : null;
 
     const roas =
-      spend !== null && spend > 0
-        ? round(acc.totalRevenue / spend)
-        : null;
+      spend !== null && spend > 0 ? round(acc.totalRevenue / spend) : null;
 
     metricsArray.push({
       campaign: acc.displayName,
@@ -141,7 +129,7 @@ export function computeRoas(
 
 function computeDivergenceScores(metrics: CampaignMetrics[]): void {
   const campaignsWithData = metrics.filter(
-    (m) => m.totalLeads > 0 || m.totalSales > 0
+    (m) => m.totalLeads > 0 || m.totalSales > 0,
   );
 
   if (campaignsWithData.length < 2) return;
@@ -153,21 +141,20 @@ function computeDivergenceScores(metrics: CampaignMetrics[]): void {
     if (withCPL.length < 2) return;
 
     const cplSorted = [...withCPL].sort(
-      (a, b) => (a.costPerLead ?? Infinity) - (b.costPerLead ?? Infinity)
+      (a, b) => (a.costPerLead ?? Infinity) - (b.costPerLead ?? Infinity),
     );
     const cplRank = new Map<string, number>();
     cplSorted.forEach((m, i) =>
-      cplRank.set(normalizeCampaignKey(m.campaign), i + 1)
+      cplRank.set(normalizeCampaignKey(m.campaign), i + 1),
     );
 
     const cpaSorted = [...withCPL].sort(
       (a, b) =>
-        (a.costPerAcquisition ?? Infinity) -
-        (b.costPerAcquisition ?? Infinity)
+        (a.costPerAcquisition ?? Infinity) - (b.costPerAcquisition ?? Infinity),
     );
     const cpaRank = new Map<string, number>();
     cpaSorted.forEach((m, i) =>
-      cpaRank.set(normalizeCampaignKey(m.campaign), i + 1)
+      cpaRank.set(normalizeCampaignKey(m.campaign), i + 1),
     );
 
     const maxDivergence = withCPL.length - 1;
@@ -182,19 +169,19 @@ function computeDivergenceScores(metrics: CampaignMetrics[]): void {
     }
   } else {
     const leadSorted = [...campaignsWithData].sort(
-      (a, b) => b.totalLeads - a.totalLeads
+      (a, b) => b.totalLeads - a.totalLeads,
     );
     const leadRank = new Map<string, number>();
     leadSorted.forEach((m, i) =>
-      leadRank.set(normalizeCampaignKey(m.campaign), i + 1)
+      leadRank.set(normalizeCampaignKey(m.campaign), i + 1),
     );
 
     const revSorted = [...campaignsWithData].sort(
-      (a, b) => b.totalRevenue - a.totalRevenue
+      (a, b) => b.totalRevenue - a.totalRevenue,
     );
     const revRank = new Map<string, number>();
     revSorted.forEach((m, i) =>
-      revRank.set(normalizeCampaignKey(m.campaign), i + 1)
+      revRank.set(normalizeCampaignKey(m.campaign), i + 1),
     );
 
     const maxDivergence = campaignsWithData.length - 1;

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     if (!pairs || !Array.isArray(pairs) || pairs.length === 0) {
       return NextResponse.json(
         { error: "No matched pairs provided." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
