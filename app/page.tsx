@@ -216,43 +216,127 @@ export default function HomePage() {
           {/* Divergence Visualization */}
           <DivergenceChart campaigns={data.roasResult.campaigns} />
 
-          {/* Narrative */}
-          {data.narrative && (
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                <span className="text-purple-400">✨</span> AI Insights
-              </h2>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-6">
+            {/* AI Insights */}
+            {data.narrative && (
+              <div className="lg:col-span-2 space-y-6">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                  <span className="text-purple-400 animate-pulse">✨</span> AI
+                  Insights
+                </h2>
+                <div
+                  id="narrative-box"
+                  className="relative bg-zinc-900/60 backdrop-blur-xl border border-purple-500/20 rounded-3xl p-8 shadow-2xl overflow-hidden group hover:border-purple-500/40 transition-colors"
+                >
+                  <div className="absolute -top-32 -right-32 w-64 h-64 bg-purple-500/10 blur-3xl rounded-full pointer-events-none group-hover:bg-purple-500/20 transition-all" />
+
+                  <div className="relative text-zinc-300 leading-relaxed space-y-5 text-sm md:text-base">
+                    {data.narrative.split("\n").map((line, i) =>
+                      line.trim() ? (
+                        <div key={i} className="flex gap-4 items-start">
+                          <span className="text-purple-400/50 shrink-0 mt-1">
+                            ✦
+                          </span>
+                          <p>{line}</p>
+                        </div>
+                      ) : null,
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Export Options */}
+            <div
+              className={`space-y-6 ${!data.narrative ? "lg:col-span-3" : ""}`}
+            >
+              <h2 className="text-2xl font-bold text-white">Export & Sync</h2>
               <div
-                id="narrative-box"
-                className="bg-linear-to-br from-zinc-900/80 to-zinc-900/40 backdrop-blur-xl border border-white/10 rounded-2xl p-8 text-zinc-300 leading-relaxed space-y-4 shadow-xl"
+                className={`grid grid-cols-1 ${!data.narrative ? "md:grid-cols-2" : ""} gap-4`}
               >
-                {data.narrative
-                  .split("\n")
-                  .map((line, i) =>
-                    line.trim() ? <p key={i}>{line}</p> : null,
-                  )}
+                {/* Google Ads */}
+                <div className="bg-zinc-900/60 backdrop-blur-xl border border-white/5 rounded-3xl p-6 hover:border-blue-500/30 transition-colors flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center shrink-0">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-blue-400"
+                        >
+                          <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          <path d="M10 7v3" />
+                          <path d="M8 9h4" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-white font-semibold">Google Ads</h3>
+                        <p className="text-xs text-zinc-400">
+                          Offline Conversions
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-zinc-500 mb-6">
+                      Upload this CSV to Google Ads to feed true ROAS data back
+                      into your bidding algorithms.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleExport("google")}
+                    disabled={exporting !== null}
+                    className="w-full bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-xl py-3 text-sm font-semibold transition-all hover:shadow-[0_0_15px_rgba(59,130,246,0.15)] disabled:opacity-50 disabled:hover:shadow-none cursor-pointer"
+                  >
+                    {exporting === "google" ? "Generating..." : "Download CSV"}
+                  </button>
+                </div>
+
+                {/* Meta Ads */}
+                <div className="bg-zinc-900/60 backdrop-blur-xl border border-white/5 rounded-3xl p-6 hover:border-emerald-500/30 transition-colors flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center shrink-0">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-emerald-400"
+                        >
+                          <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-white font-semibold">Meta Ads</h3>
+                        <p className="text-xs text-zinc-400">Conversions API</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-zinc-500 mb-6">
+                      Push this payload to the Conversions API to recover lost
+                      signal and optimize delivery.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleExport("meta")}
+                    disabled={exporting !== null}
+                    className="w-full bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border border-emerald-500/20 rounded-xl py-3 text-sm font-semibold transition-all hover:shadow-[0_0_15px_rgba(16,185,129,0.15)] disabled:opacity-50 disabled:hover:shadow-none cursor-pointer"
+                  >
+                    {exporting === "meta" ? "Generating..." : "Download JSON"}
+                  </button>
+                </div>
               </div>
             </div>
-          )}
-
-          {/* Export Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 pt-6">
-            <button
-              onClick={() => handleExport("google")}
-              disabled={exporting !== null}
-              id="btn-export-google"
-              className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-xl py-4 font-semibold transition-all duration-300 hover:border-white/20 flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {exporting === "google" ? "Exporting…" : "Export for Google Ads"}
-            </button>
-            <button
-              onClick={() => handleExport("meta")}
-              disabled={exporting !== null}
-              id="btn-export-meta"
-              className="flex-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/20 rounded-xl py-4 font-semibold transition-all duration-300 hover:border-blue-500/40 flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {exporting === "meta" ? "Exporting…" : "Export for Meta"}
-            </button>
           </div>
         </div>
       )}

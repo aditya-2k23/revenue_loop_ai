@@ -20,7 +20,7 @@ export function CampaignTable({ campaigns }: { campaigns: CampaignMetrics[] }) {
       <h2 className="text-2xl font-bold text-white mb-6">
         Campaign Metrics
       </h2>
-      <div className="overflow-x-auto rounded-2xl border border-white/5 bg-zinc-900/20 backdrop-blur-sm">
+      <div className="overflow-x-auto scrollbar-hide rounded-2xl border border-white/5 bg-zinc-900/20 backdrop-blur-sm">
         <table id="campaign-table" className="w-full text-sm text-left">
           <thead className="bg-zinc-900/60 text-zinc-400 uppercase tracking-wider text-xs font-semibold">
             <tr>
