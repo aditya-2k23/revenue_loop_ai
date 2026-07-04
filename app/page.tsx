@@ -13,6 +13,9 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ProcessResponse | null>(null);
   const [exporting, setExporting] = useState<string | null>(null);
+  const [exportSuccess, setExportSuccess] = useState<string | null>(null);
+  const [showFormatHint, setShowFormatHint] = useState(false);
+  const [hoveredCampaign, setHoveredCampaign] = useState<string | null>(null);
 
   const leadsRef = useRef<HTMLInputElement>(null);
   const salesRef = useRef<HTMLInputElement>(null);
@@ -82,6 +85,8 @@ export default function HomePage() {
       a.download = filename;
       a.click();
       URL.revokeObjectURL(a.href);
+      setExportSuccess(platform);
+      setTimeout(() => setExportSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Export failed");
     } finally {
@@ -94,13 +99,31 @@ export default function HomePage() {
       ? `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
       : "—";
 
+  const highlightCampaigns = (text: string) => {
+    if (!data) return text;
+    let result = text.replace(
+      /\*\*(.*?)\*\*/g,
+      '<strong class="text-white font-semibold">$1</strong>',
+    );
+    data.roasResult.campaigns.forEach((c) => {
+      if (!c.campaign) return;
+      const name = c.campaign.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(`\\b(${name})\\b(?![^<]*>)`, "gi"); // negative lookahead to avoid replacing inside existing tags
+      result = result.replace(
+        regex,
+        '<strong class="text-white font-semibold">$1</strong>',
+      );
+    });
+    return result;
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-6 py-12 lg:py-20 relative">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-blue-500/10 blur-[120px] rounded-full pointer-events-none -z-10" />
 
       <header className="text-center mb-16">
         <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-white mb-4 flex items-center justify-center gap-3">
-          <span className="text-blue-500 animate-pulse">⟳</span> RevenueLoop AI
+          <span className="text-blue-500">⟳</span> RevenueLoop AI
         </h1>
         <p className="text-zinc-400 text-lg max-w-xl mx-auto">
           True ROAS attribution through precision lead-to-sale matching.
@@ -135,7 +158,7 @@ export default function HomePage() {
           type="submit"
           disabled={loading}
           id="btn-process"
-          className="w-full bg-linear-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold rounded-xl py-4 transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 shadow-lg shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 cursor-pointer"
+          className="w-full bg-linear-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold rounded-xl py-4 transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 shadow-lg shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           {loading ? (
             <span className="flex items-center justify-center gap-2">
@@ -146,6 +169,47 @@ export default function HomePage() {
             "Analyze Campaigns"
           )}
         </button>
+
+        <div className="mt-6 text-center">
+          <button
+            type="button"
+            onClick={() => setShowFormatHint(!showFormatHint)}
+            className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded px-2 py-1 cursor-pointer"
+          >
+            {showFormatHint ? "Hide Expected Format" : "View Expected Format"}
+          </button>
+
+          {showFormatHint && (
+            <div className="mt-4 text-left bg-zinc-900/50 backdrop-blur-sm border border-white/5 rounded-xl p-6 text-sm text-zinc-400 grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-top-2 fade-in duration-300">
+              <div>
+                <h4 className="text-white font-semibold mb-2">Leads CSV</h4>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Email or Phone</li>
+                  <li>Campaign (Name/ID)</li>
+                  <li>Timestamp</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="text-white font-semibold mb-2">Sales CSV</h4>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Email or Phone</li>
+                  <li>Value / Revenue</li>
+                  <li>Status</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="text-white font-semibold mb-2">
+                  Spend CSV (Optional)
+                </h4>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Campaign (Name/ID)</li>
+                  <li>Date</li>
+                  <li>Spend Amount</li>
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
       </form>
 
       {error && (
@@ -158,7 +222,24 @@ export default function HomePage() {
         </div>
       )}
 
-      {data && (
+      {loading && !data && (
+        <div className="space-y-12 animate-in fade-in duration-700 mt-12 opacity-50 pointer-events-none">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {[...Array(6)].map((_, i) => (
+              <div
+                key={i}
+                className="bg-zinc-900/60 border border-white/5 rounded-2xl h-[104px] animate-pulse"
+              />
+            ))}
+          </div>
+          <div className="space-y-6">
+            <div className="h-8 w-48 bg-zinc-800 rounded animate-pulse" />
+            <div className="bg-zinc-900/40 border border-white/5 rounded-2xl h-64 animate-pulse" />
+          </div>
+        </div>
+      )}
+
+      {data && !loading && (
         <div className="space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
           {/* Warnings */}
           {data.warnings.length > 0 && (
@@ -211,19 +292,23 @@ export default function HomePage() {
           </div>
 
           {/* Campaign Table */}
-          <CampaignTable campaigns={data.roasResult.campaigns} />
+          <CampaignTable
+            campaigns={data.roasResult.campaigns}
+            hoveredCampaign={hoveredCampaign}
+            onHoverCampaign={setHoveredCampaign}
+          />
 
           {/* Divergence Visualization */}
-          <DivergenceChart campaigns={data.roasResult.campaigns} />
+          <DivergenceChart
+            campaigns={data.roasResult.campaigns}
+            hoveredCampaign={hoveredCampaign}
+          />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-6">
             {/* AI Insights */}
             {data.narrative && (
               <div className="lg:col-span-2 space-y-6">
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                  <span className="text-purple-400 animate-pulse">✨</span> AI
-                  Insights
-                </h2>
+                <h2 className="text-2xl font-bold text-white">AI Insights</h2>
                 <div
                   id="narrative-box"
                   className="relative bg-zinc-900/60 backdrop-blur-xl border border-purple-500/20 rounded-3xl p-8 shadow-2xl overflow-hidden group hover:border-purple-500/40 transition-colors"
@@ -231,15 +316,26 @@ export default function HomePage() {
                   <div className="absolute -top-32 -right-32 w-64 h-64 bg-purple-500/10 blur-3xl rounded-full pointer-events-none group-hover:bg-purple-500/20 transition-all" />
 
                   <div className="relative text-zinc-300 leading-relaxed space-y-5 text-sm md:text-base">
-                    {data.narrative.split("\n").map((line, i) =>
-                      line.trim() ? (
-                        <div key={i} className="flex gap-4 items-start">
-                          <span className="text-purple-400/50 shrink-0 mt-1">
-                            ✦
-                          </span>
-                          <p>{line}</p>
-                        </div>
-                      ) : null,
+                    {data.narrative ? (
+                      data.narrative.split("\n").map((line, i) =>
+                        line.trim() ? (
+                          <div key={i} className="flex gap-4 items-start">
+                            <span className="text-purple-400/50 shrink-0 mt-1">
+                              ✦
+                            </span>
+                            <p
+                              dangerouslySetInnerHTML={{
+                                __html: highlightCampaigns(line),
+                              }}
+                            />
+                          </div>
+                        ) : null,
+                      )
+                    ) : (
+                      <div className="flex items-center gap-3 text-zinc-500 italic py-4">
+                        <span className="text-xl">🤖</span> AI summary currently
+                        unavailable.
+                      </div>
                     )}
                   </div>
                 </div>
@@ -283,17 +379,41 @@ export default function HomePage() {
                         </p>
                       </div>
                     </div>
-                    <p className="text-sm text-zinc-500 mb-6">
+                    <p className="text-sm text-zinc-500 mb-2">
                       Upload this CSV to Google Ads to feed true ROAS data back
                       into your bidding algorithms.
+                    </p>
+                    <p className="text-[11px] text-zinc-600 mb-6 italic">
+                      * Uses "Offline Sale" as conversion name.
                     </p>
                   </div>
                   <button
                     onClick={() => handleExport("google")}
                     disabled={exporting !== null}
-                    className="w-full bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-xl py-3 text-sm font-semibold transition-all hover:shadow-[0_0_15px_rgba(59,130,246,0.15)] disabled:opacity-50 disabled:hover:shadow-none cursor-pointer"
+                    className="w-full bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-xl py-3 text-sm font-semibold transition-all hover:shadow-[0_0_15px_rgba(59,130,246,0.15)] disabled:opacity-50 disabled:hover:shadow-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                   >
-                    {exporting === "google" ? "Generating..." : "Download CSV"}
+                    {exportSuccess === "google" ? (
+                      <span className="flex items-center justify-center gap-2 text-emerald-400">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                        Downloaded
+                      </span>
+                    ) : exporting === "google" ? (
+                      "Generating..."
+                    ) : (
+                      "Download CSV"
+                    )}
                   </button>
                 </div>
 
@@ -322,17 +442,41 @@ export default function HomePage() {
                         <p className="text-xs text-zinc-400">Conversions API</p>
                       </div>
                     </div>
-                    <p className="text-sm text-zinc-500 mb-6">
+                    <p className="text-sm text-zinc-500 mb-2">
                       Push this payload to the Conversions API to recover lost
                       signal and optimize delivery.
+                    </p>
+                    <p className="text-[11px] text-zinc-600 mb-6 italic">
+                      * Uses "Purchase" event and "USD" currency.
                     </p>
                   </div>
                   <button
                     onClick={() => handleExport("meta")}
                     disabled={exporting !== null}
-                    className="w-full bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border border-emerald-500/20 rounded-xl py-3 text-sm font-semibold transition-all hover:shadow-[0_0_15px_rgba(16,185,129,0.15)] disabled:opacity-50 disabled:hover:shadow-none cursor-pointer"
+                    className="w-full bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border border-emerald-500/20 rounded-xl py-3 text-sm font-semibold transition-all hover:shadow-[0_0_15px_rgba(16,185,129,0.15)] disabled:opacity-50 disabled:hover:shadow-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                   >
-                    {exporting === "meta" ? "Generating..." : "Download JSON"}
+                    {exportSuccess === "meta" ? (
+                      <span className="flex items-center justify-center gap-2 text-emerald-400">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                        Downloaded
+                      </span>
+                    ) : exporting === "meta" ? (
+                      "Generating..."
+                    ) : (
+                      "Download JSON"
+                    )}
                   </button>
                 </div>
               </div>

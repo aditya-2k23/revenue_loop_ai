@@ -1,6 +1,12 @@
 import type { CampaignMetrics } from "@/lib/types";
 
-export function DivergenceChart({ campaigns }: { campaigns: CampaignMetrics[] }) {
+export function DivergenceChart({ 
+  campaigns,
+  hoveredCampaign
+}: { 
+  campaigns: CampaignMetrics[];
+  hoveredCampaign?: string | null;
+}) {
   const withDivergence = campaigns
     .filter((c) => c.divergenceScore !== null && c.divergenceScore > 0)
     .sort((a, b) => (b.divergenceScore ?? 0) - (a.divergenceScore ?? 0));
@@ -22,16 +28,25 @@ export function DivergenceChart({ campaigns }: { campaigns: CampaignMetrics[] })
       </p>
       <div
         id="divergence-chart"
-        className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-2xl p-6 md:p-8 space-y-5"
+        className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-2xl p-6 md:p-8 space-y-2"
       >
         {withDivergence.map((c, i) => {
           const pct =
             maxScore > 0 ? ((c.divergenceScore ?? 0) / maxScore) * 100 : 0;
           const isHigh = (c.divergenceScore ?? 0) >= 0.3;
+          const isHovered = hoveredCampaign === c.campaign;
+
           return (
-            <div key={i} className="flex items-center gap-4 group">
+            <div 
+              key={i} 
+              className={`flex items-center gap-4 transition-all duration-300 rounded-xl px-2 py-2 ${
+                isHovered ? "bg-white/10 scale-[1.01]" : "hover:bg-white/5"
+              }`}
+            >
               <div
-                className="w-32 md:w-48 shrink-0 text-sm text-zinc-300 truncate group-hover:text-white transition-colors"
+                className={`w-32 md:w-48 shrink-0 text-sm truncate transition-colors ${
+                  isHovered ? "text-white font-semibold" : "text-zinc-300"
+                }`}
                 title={c.campaign}
               >
                 {c.campaign}
@@ -40,13 +55,15 @@ export function DivergenceChart({ campaigns }: { campaigns: CampaignMetrics[] })
                 <div
                   className={`h-full rounded-full transition-all duration-1000 ease-out ${
                     isHigh
-                      ? "bg-linear-to-r from-red-500/80 to-red-400"
+                      ? "bg-linear-to-r from-amber-500/80 to-amber-400"
                       : "bg-linear-to-r from-blue-600/80 to-blue-400"
                   }`}
                   style={{ width: `${Math.max(pct, 2)}%` }}
                 />
               </div>
-              <div className="w-12 text-right text-sm font-mono text-zinc-400 group-hover:text-zinc-300">
+              <div className={`w-12 text-right text-sm font-mono transition-colors ${
+                isHovered ? "text-zinc-300 font-semibold" : "text-zinc-400"
+              }`}>
                 {((c.divergenceScore ?? 0) * 100).toFixed(0)}%
               </div>
             </div>
