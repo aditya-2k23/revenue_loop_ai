@@ -83,6 +83,8 @@ export const DEFAULT_SYNONYMS: SynonymMap = {
     "saledate",
     "close_date",
     "closedate",
+    "closed_date",
+    "closeddate",
     "closed_at",
     "closedat",
     "time",

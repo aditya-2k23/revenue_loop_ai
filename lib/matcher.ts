@@ -96,13 +96,30 @@ function pickLastTouchLead(candidates: Lead[], sale: Sale): Lead {
 
   const saleTime = parseTimestamp(sale.timestamp);
 
+  // If sale timestamp is missing/unparseable, pick the lead with the
+  // latest timestamp (best approximation of "last touch").
+  if (saleTime === 0) {
+    let bestLead = candidates[0];
+    let bestTime = parseTimestamp(candidates[0].timestamp);
+    for (let i = 1; i < candidates.length; i++) {
+      const lt = parseTimestamp(candidates[i].timestamp);
+      if (lt > bestTime) {
+        bestTime = lt;
+        bestLead = candidates[i];
+      }
+    }
+    return bestLead;
+  }
+
+  // Normal case: pick the lead whose timestamp is closest to (but not
+  // after) the sale timestamp — i.e. smallest positive (saleTime - leadTime).
   let bestLead = candidates[0];
   let bestDiff = Infinity;
 
   for (const lead of candidates) {
     const leadTime = parseTimestamp(lead.timestamp);
-    if (leadTime <= saleTime || saleTime === 0) {
-      const diff = saleTime === 0 ? 0 : saleTime - leadTime;
+    if (leadTime <= saleTime) {
+      const diff = saleTime - leadTime;
       if (diff < bestDiff) {
         bestDiff = diff;
         bestLead = lead;
@@ -110,6 +127,7 @@ function pickLastTouchLead(candidates: Lead[], sale: Sale): Lead {
     }
   }
 
+  // If no candidate preceded the sale, fall back to absolute closest.
   if (bestDiff === Infinity) {
     let closestDiff = Infinity;
     for (const lead of candidates) {
