@@ -8,7 +8,8 @@ export function isDivergent(m: CampaignMetrics): boolean {
 type SortColumn =
   | "campaign"
   | "leads"
-  | "sales"
+  | "touchedSales"
+  | "creditedSales"
   | "revenue"
   | "spend"
   | "cpl"
@@ -54,9 +55,12 @@ export function CampaignTable({
     if (sortCol === "leads") {
       valA = a.totalLeads;
       valB = b.totalLeads;
-    } else if (sortCol === "sales") {
-      valA = a.totalSales;
-      valB = b.totalSales;
+    } else if (sortCol === "touchedSales") {
+      valA = a.touchedSales;
+      valB = b.touchedSales;
+    } else if (sortCol === "creditedSales") {
+      valA = a.creditedSales;
+      valB = b.creditedSales;
     } else if (sortCol === "revenue") {
       valA = a.totalRevenue;
       valB = b.totalRevenue;
@@ -138,7 +142,8 @@ export function CampaignTable({
             <tr>
               <Th label="Campaign" col="campaign" align="left" />
               <Th label="Leads" col="leads" />
-              <Th label="Sales" col="sales" />
+              <Th label="Touched Sales" col="touchedSales" />
+              <Th label="Credited Sales" col="creditedSales" />
               <Th label="Revenue" col="revenue" />
               <Th label="Spend" col="spend" />
               <Th label="CPL" col="cpl" />
@@ -176,7 +181,10 @@ export function CampaignTable({
                     {c.totalLeads}
                   </td>
                   <td className="px-3 md:px-4 py-3 md:py-4 text-right text-zinc-300 font-mono">
-                    {c.totalSales}
+                    {c.touchedSales}
+                  </td>
+                  <td className="px-3 md:px-4 py-3 md:py-4 text-right text-zinc-300 font-mono">
+                    {fmt(c.creditedSales)}
                   </td>
                   <td className="px-3 md:px-4 py-3 md:py-4 text-right text-emerald-400/90 font-mono relative z-0">
                     <div

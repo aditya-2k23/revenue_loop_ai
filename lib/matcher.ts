@@ -1,4 +1,12 @@
-import type { Lead, Sale, MatchedPair, MatchResult } from "./types";
+import type {
+  Lead,
+  Sale,
+  MatchedPair,
+  MatchBasis,
+  MatchResult,
+  SaleTouch,
+  SaleTouchGraph,
+} from "./types";
 
 function normalizePhone(raw: string | undefined): string | null {
   if (!raw) return null;
@@ -28,15 +36,16 @@ function parseTimestamp(ts: string | undefined): number {
 }
 
 export function matchLeadsToSales(leads: Lead[], sales: Sale[]): MatchResult {
-  const matched: MatchedPair[] = [];
+  const touchGraph: SaleTouchGraph[] = [];
   const usedSaleIndices = new Set<number>();
 
   const emailToLeads = new Map<string, Lead[]>();
   for (const lead of leads) {
-    if (lead.email) {
-      const existing = emailToLeads.get(lead.email) || [];
+    const email = normalizeEmail(lead.email);
+    if (email) {
+      const existing = emailToLeads.get(email) || [];
       existing.push(lead);
-      emailToLeads.set(lead.email, existing);
+      emailToLeads.set(email, existing);
     }
   }
 
@@ -51,32 +60,56 @@ export function matchLeadsToSales(leads: Lead[], sales: Sale[]): MatchResult {
   }
 
   const matchedLeadRefs = new Set<Lead>();
+  const leadOrder = new Map<Lead, number>();
+  leads.forEach((lead, index) => leadOrder.set(lead, index));
 
   for (let si = 0; si < sales.length; si++) {
     const sale = sales[si];
+    const candidates = new Map<Lead, Set<"email" | "phone">>();
 
-    if (sale.email) {
-      const candidateLeads = emailToLeads.get(sale.email);
-      if (candidateLeads && candidateLeads.length > 0) {
-        const bestLead = pickLastTouchLead(candidateLeads, sale);
-        matched.push({ lead: bestLead, sale, matchBasis: "email" });
-        usedSaleIndices.add(si);
-        matchedLeadRefs.add(bestLead);
-        continue;
+    const saleEmail = normalizeEmail(sale.email);
+    if (saleEmail) {
+      const candidateLeads = emailToLeads.get(saleEmail);
+      if (candidateLeads) {
+        for (const lead of candidateLeads) {
+          const basis = candidates.get(lead) || new Set<"email" | "phone">();
+          basis.add("email");
+          candidates.set(lead, basis);
+        }
       }
     }
 
     const saleNormPhone = normalizePhone(sale.phone);
     if (saleNormPhone) {
       const candidateLeads = phoneToLeads.get(saleNormPhone);
-      if (candidateLeads && candidateLeads.length > 0) {
-        const bestLead = pickLastTouchLead(candidateLeads, sale);
-        matched.push({ lead: bestLead, sale, matchBasis: "phone" });
-        usedSaleIndices.add(si);
-        matchedLeadRefs.add(bestLead);
-        continue;
+      if (candidateLeads) {
+        for (const lead of candidateLeads) {
+          const basis = candidates.get(lead) || new Set<"email" | "phone">();
+          basis.add("phone");
+          candidates.set(lead, basis);
+        }
       }
     }
+
+    if (candidates.size === 0) continue;
+
+    const touches: SaleTouch[] = Array.from(candidates.entries())
+      .map(([lead, basisSet]) => ({
+        lead,
+        matchBasis: toMatchBasis(basisSet),
+      }))
+      .sort((a, b) => {
+        const timeDiff =
+          parseTimestamp(a.lead.timestamp) - parseTimestamp(b.lead.timestamp);
+        if (timeDiff !== 0) return timeDiff;
+        return (leadOrder.get(a.lead) ?? 0) - (leadOrder.get(b.lead) ?? 0);
+      });
+
+    for (const touch of touches) {
+      matchedLeadRefs.add(touch.lead);
+    }
+    usedSaleIndices.add(si);
+    touchGraph.push({ sale, touches });
   }
 
   const unmatchedLeads = leads.filter((l) => !matchedLeadRefs.has(l));
@@ -88,7 +121,36 @@ export function matchLeadsToSales(leads: Lead[], sales: Sale[]): MatchResult {
       ? Math.round((matchedLeadRefs.size / totalLeads) * 10000) / 100
       : 0;
 
-  return { matched, unmatchedLeads, unmatchedSales, matchRatePercent };
+  return {
+    touchGraph,
+    lastTouchPairs: touchGraphToLastTouchPairs(touchGraph),
+    unmatchedLeads,
+    unmatchedSales,
+    matchRatePercent,
+  };
+}
+
+function normalizeEmail(raw: string | undefined): string | null {
+  const normalized = raw?.trim().toLowerCase();
+  return normalized || null;
+}
+
+function toMatchBasis(basisSet: Set<"email" | "phone">): MatchBasis {
+  if (basisSet.has("email") && basisSet.has("phone")) return "email_phone";
+  if (basisSet.has("email")) return "email";
+  return "phone";
+}
+
+function exportMatchBasis(basis: MatchBasis): "email" | "phone" {
+  return basis === "phone" ? "phone" : "email";
+}
+
+function pickLastTouch(touches: SaleTouch[], sale: Sale): SaleTouch {
+  if (touches.length === 1) return touches[0];
+
+  const candidates = touches.map((touch) => touch.lead);
+  const pickedLead = pickLastTouchLead(candidates, sale);
+  return touches.find((touch) => touch.lead === pickedLead) ?? touches[touches.length - 1];
 }
 
 function pickLastTouchLead(candidates: Lead[], sale: Sale): Lead {
@@ -141,6 +203,19 @@ function pickLastTouchLead(candidates: Lead[], sale: Sale): Lead {
   }
 
   return bestLead;
+}
+
+export function touchGraphToLastTouchPairs(
+  touchGraph: SaleTouchGraph[],
+): MatchedPair[] {
+  return touchGraph.map((saleGraph) => {
+    const touch = pickLastTouch(saleGraph.touches, saleGraph.sale);
+    return {
+      lead: touch.lead,
+      sale: saleGraph.sale,
+      matchBasis: exportMatchBasis(touch.matchBasis),
+    };
+  });
 }
 
 export { normalizePhone };

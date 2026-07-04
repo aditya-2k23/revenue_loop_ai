@@ -1,13 +1,14 @@
 import type {
-  MatchedPair,
+  AttributionOptions,
   Lead,
   SpendRow,
   CampaignMetrics,
   RoasResult,
   SpendByCampaign,
   CampaignAccumulator,
+  SaleTouchGraph,
 } from "./types";
-
+import { getAttributionWeights } from "./attribution";
 
 
 function aggregateSpend(spendRows: SpendRow[]): SpendByCampaign {
@@ -27,9 +28,10 @@ function normalizeCampaignKey(raw: string | undefined): string {
 
 
 export function computeRoas(
-  matchedPairs: MatchedPair[],
+  touchGraph: SaleTouchGraph[],
   allLeads: Lead[],
   spendRows?: SpendRow[],
+  attributionOptions: AttributionOptions = { model: "last-touch" },
 ): RoasResult {
   const campaignMap = new Map<string, CampaignAccumulator>();
 
@@ -39,7 +41,8 @@ export function computeRoas(
         campaign: key,
         displayName,
         leadCount: 0,
-        saleCount: 0,
+        touchedSaleCount: 0,
+        creditedSaleCount: 0,
         totalRevenue: 0,
       });
     }
@@ -51,12 +54,29 @@ export function computeRoas(
     campaignMap.get(key)!.leadCount++;
   }
 
-  for (const pair of matchedPairs) {
-    const key = normalizeCampaignKey(pair.lead.campaign);
-    ensureCampaign(key, pair.lead.campaign ?? "Unknown");
-    const acc = campaignMap.get(key)!;
-    acc.saleCount++;
-    acc.totalRevenue += pair.sale.value ?? 0;
+  for (const saleGraph of touchGraph) {
+    const creditedCampaigns = new Set<string>();
+    const weights = getAttributionWeights(
+      saleGraph.touches.map((touch) => touch.lead),
+      saleGraph.sale,
+      attributionOptions,
+    );
+
+    saleGraph.touches.forEach((touch, index) => {
+      const key = normalizeCampaignKey(touch.lead.campaign);
+      ensureCampaign(key, touch.lead.campaign ?? "Unknown");
+      creditedCampaigns.add(key);
+
+      const weight = weights[index] ?? 0;
+      const acc = campaignMap.get(key)!;
+      acc.creditedSaleCount += weight;
+      acc.totalRevenue += (saleGraph.sale.value ?? 0) * weight;
+    });
+
+    for (const key of creditedCampaigns) {
+      const acc = campaignMap.get(key);
+      if (acc) acc.touchedSaleCount++;
+    }
   }
 
   const spendByCampaign = spendRows ? aggregateSpend(spendRows) : null;
@@ -79,7 +99,9 @@ export function computeRoas(
       spend !== null && acc.leadCount > 0 ? round(spend / acc.leadCount) : null;
 
     const cpa =
-      spend !== null && acc.saleCount > 0 ? round(spend / acc.saleCount) : null;
+      spend !== null && acc.creditedSaleCount > 0
+        ? round(spend / acc.creditedSaleCount)
+        : null;
 
     const roas =
       spend !== null && spend > 0 ? round(acc.totalRevenue / spend) : null;
@@ -87,7 +109,9 @@ export function computeRoas(
     metricsArray.push({
       campaign: acc.displayName,
       totalLeads: acc.leadCount,
-      totalSales: acc.saleCount,
+      touchedSales: acc.touchedSaleCount,
+      creditedSales: round(acc.creditedSaleCount),
+      totalSales: round(acc.creditedSaleCount),
       totalRevenue: round(acc.totalRevenue),
       costPerLead: cpl,
       costPerAcquisition: cpa,
@@ -116,7 +140,7 @@ export function computeRoas(
     campaigns: metricsArray,
     totals: {
       totalLeads: allLeads.length,
-      totalSales: matchedPairs.length,
+      totalSales: touchGraph.length,
       totalRevenue: round(totalRevenue),
       totalSpend: totalSpendSum !== null ? round(totalSpendSum) : null,
       overallRoas:

@@ -1,17 +1,21 @@
 "use client";
 
-import { useState, useRef, type FormEvent } from "react";
+import { useMemo, useState, useRef, type FormEvent } from "react";
 import { FileInput } from "@/components/FileInput";
 import { StatCard } from "@/components/StatCard";
 import { DivergenceChart } from "@/components/DivergenceChart";
 import { CampaignTable } from "@/components/CampaignTable";
+import { computeRoas } from "@/lib/roas-engine";
 
-import type { ProcessResponse } from "@/lib/types";
+import type { AttributionModel, ProcessResponse } from "@/lib/types";
 
 export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ProcessResponse | null>(null);
+  const [attributionModel, setAttributionModel] =
+    useState<AttributionModel>("last-touch");
+  const [halfLifeDays, setHalfLifeDays] = useState(7);
   const [exporting, setExporting] = useState<string | null>(null);
   const [exportSuccess, setExportSuccess] = useState<string | null>(null);
   const [showFormatHint, setShowFormatHint] = useState(false);
@@ -20,6 +24,14 @@ export default function HomePage() {
   const leadsRef = useRef<HTMLInputElement>(null);
   const salesRef = useRef<HTMLInputElement>(null);
   const spendRef = useRef<HTMLInputElement>(null);
+
+  const activeRoasResult = useMemo(() => {
+    if (!data) return null;
+    return computeRoas(data.touchGraph, data.allLeads, data.spendRows, {
+      model: attributionModel,
+      halfLifeDays,
+    });
+  }, [attributionModel, data, halfLifeDays]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -60,7 +72,7 @@ export default function HomePage() {
   }
 
   async function handleExport(platform: "google" | "meta") {
-    if (!data?._matchedPairs) return;
+    if (!data?.touchGraph) return;
     setExporting(platform);
     try {
       const url =
@@ -68,7 +80,7 @@ export default function HomePage() {
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pairs: data._matchedPairs }),
+        body: JSON.stringify({ touchGraph: data.touchGraph }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -100,12 +112,12 @@ export default function HomePage() {
       : "—";
 
   const highlightCampaigns = (text: string) => {
-    if (!data) return text;
+    if (!activeRoasResult) return text;
     let result = text.replace(
       /\*\*(.*?)\*\*/g,
       '<strong class="text-white font-semibold">$1</strong>',
     );
-    data.roasResult.campaigns.forEach((c) => {
+    activeRoasResult.campaigns.forEach((c) => {
       if (!c.campaign) return;
       const name = c.campaign.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const regex = new RegExp(`\\b(${name})\\b(?![^<]*>)`, "gi"); // negative lookahead to avoid replacing inside existing tags
@@ -261,8 +273,12 @@ export default function HomePage() {
           {/* Match Summary */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <StatCard
-              label="Matched Pairs"
+              label="Matched Leads"
               value={data.matchResult.matchedCount}
+            />
+            <StatCard
+              label="Matched Sales"
+              value={data.matchResult.matchedSalesCount}
             />
             <StatCard
               label="Match Rate"
@@ -279,30 +295,82 @@ export default function HomePage() {
             />
             <StatCard
               label="Total Revenue"
-              value={fmtCurrency(data.roasResult.totals.totalRevenue)}
+              value={fmtCurrency(activeRoasResult?.totals.totalRevenue ?? null)}
               highlight
             />
-            {data.roasResult.totals.overallRoas !== null && (
+            {activeRoasResult?.totals.overallRoas !== null &&
+              activeRoasResult?.totals.overallRoas !== undefined && (
               <StatCard
                 label="Overall ROAS"
-                value={`${data.roasResult.totals.overallRoas}x`}
+                value={`${activeRoasResult.totals.overallRoas}x`}
                 highlight
               />
             )}
           </div>
 
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 rounded-2xl border border-white/5 bg-zinc-900/30 p-5">
+            <div>
+              <label
+                htmlFor="attribution-model"
+                className="block text-xs uppercase tracking-wider text-zinc-500 font-semibold mb-2"
+              >
+                Attribution Model
+              </label>
+              <select
+                id="attribution-model"
+                value={attributionModel}
+                onChange={(e) =>
+                  setAttributionModel(e.target.value as AttributionModel)
+                }
+                className="w-full md:w-64 rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
+                <option value="last-touch">Last-touch</option>
+                <option value="first-touch">First-touch</option>
+                <option value="linear">Linear</option>
+                <option value="time-decay">Time-decay</option>
+                <option value="position-based">Position-based</option>
+              </select>
+            </div>
+
+            {attributionModel === "time-decay" && (
+              <div>
+                <label
+                  htmlFor="half-life-days"
+                  className="block text-xs uppercase tracking-wider text-zinc-500 font-semibold mb-2"
+                >
+                  Half-life Days
+                </label>
+                <input
+                  id="half-life-days"
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={halfLifeDays}
+                  onChange={(e) =>
+                    setHalfLifeDays(Math.max(0.1, Number(e.target.value) || 7))
+                  }
+                  className="w-full md:w-40 rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                />
+              </div>
+            )}
+          </div>
+
           {/* Campaign Table */}
-          <CampaignTable
-            campaigns={data.roasResult.campaigns}
-            hoveredCampaign={hoveredCampaign}
-            onHoverCampaign={setHoveredCampaign}
-          />
+          {activeRoasResult && (
+            <CampaignTable
+              campaigns={activeRoasResult.campaigns}
+              hoveredCampaign={hoveredCampaign}
+              onHoverCampaign={setHoveredCampaign}
+            />
+          )}
 
           {/* Divergence Visualization */}
-          <DivergenceChart
-            campaigns={data.roasResult.campaigns}
-            hoveredCampaign={hoveredCampaign}
-          />
+          {activeRoasResult && (
+            <DivergenceChart
+              campaigns={activeRoasResult.campaigns}
+              hoveredCampaign={hoveredCampaign}
+            />
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-6">
             {/* AI Insights */}

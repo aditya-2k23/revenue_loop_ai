@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { toGoogleAdsOfflineConversionCSV } from "@/lib/offline-conversion-export";
-import type { MatchedPair } from "@/lib/types";
+import { touchGraphToLastTouchPairs } from "@/lib/matcher";
+import type { MatchedPair, SaleTouchGraph } from "@/lib/types";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const pairs: MatchedPair[] = body.pairs;
+    const pairs: MatchedPair[] = Array.isArray(body.touchGraph)
+      ? touchGraphToLastTouchPairs(body.touchGraph as SaleTouchGraph[])
+      : body.pairs;
     const options = {
       conversionName: body.conversionName,
       currency: body.currency,

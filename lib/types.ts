@@ -6,7 +6,8 @@ export interface CampaignAccumulator {
   campaign: string;
   displayName: string;
   leadCount: number;
-  saleCount: number;
+  touchedSaleCount: number;
+  creditedSaleCount: number;
   totalRevenue: number;
 }
 
@@ -52,16 +53,43 @@ export interface MatchedPair {
   matchBasis: "email" | "phone";
 }
 
+export type MatchBasis = "email" | "phone" | "email_phone";
+
+export interface SaleTouch {
+  lead: Lead;
+  matchBasis: MatchBasis;
+}
+
+export interface SaleTouchGraph {
+  sale: Sale;
+  touches: SaleTouch[];
+}
+
 export interface MatchResult {
-  matched: MatchedPair[];
+  touchGraph: SaleTouchGraph[];
+  lastTouchPairs: MatchedPair[];
   unmatchedLeads: Lead[];
   unmatchedSales: Sale[];
   matchRatePercent: number;
 }
 
+export type AttributionModel =
+  | "last-touch"
+  | "first-touch"
+  | "linear"
+  | "time-decay"
+  | "position-based";
+
+export interface AttributionOptions {
+  model: AttributionModel;
+  halfLifeDays?: number;
+}
+
 export interface CampaignMetrics {
   campaign: string;
   totalLeads: number;
+  touchedSales: number;
+  creditedSales: number;
   totalSales: number;
   totalRevenue: number;
   costPerLead: number | null;
@@ -86,6 +114,7 @@ export type SynonymMap = Record<string, string[]>;
 
 export interface MatchSummary {
   matchedCount: number;
+  matchedSalesCount: number;
   unmatchedLeadsCount: number;
   unmatchedSalesCount: number;
   matchRatePercent: number;
@@ -96,6 +125,8 @@ export interface ProcessResponse {
   roasResult: RoasResult;
   narrative: string;
   warnings: string[];
-  _matchedPairs: MatchedPair[];
+  touchGraph: SaleTouchGraph[];
+  allLeads: Lead[];
+  spendRows?: SpendRow[];
   error?: string;
 }
